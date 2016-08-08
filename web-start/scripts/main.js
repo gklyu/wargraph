@@ -515,7 +515,7 @@ window.onload = function() {
       dragMaxY: 230,
       dragMinY: 0
     }, {
-      data: [30, 48, 95, 165, 130, 5, 119, 89, 104, 199, 184, 139],
+      data: [03, 48, 95, 165, 130, 5, 119, 89, 104, 199, 184, 139],
       type: 'area',
       //draggableX: true,
       draggableY: false,
