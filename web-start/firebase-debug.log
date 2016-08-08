@@ -1,0 +1,14 @@
+[debug] ----------------------------------------------------------------------
+[debug] Command:      /usr/local/bin/node /usr/local/bin/firebase serve
+[debug] CLI Version:  3.0.6
+[debug] Platform:     darwin
+[debug] Node Version: v4.1.1
+[debug] Time:         Fri Aug 05 2016 17:20:05 GMT+0900 (JST)
+[debug] ----------------------------------------------------------------------
+[debug] 
+[info] Starting Firebase development server...
+[info] 
+[info] Project Directory: /Users/yugarland/friendlychat/web-start
+[info] Public Directory: ./
+[info] 
+[info] Server listening at: http://localhost:5000
