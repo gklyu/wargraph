@@ -102,6 +102,7 @@ FriendlyChat.prototype.loadWars = function() {
   this.warsRef.limitToLast(1).on('child_added', setWar);
   this.warsRef.limitToLast(1).on('child_changed', setWar);  
 };
+
 // Displays a war in the UI.
 FriendlyChat.prototype.displayWar = function(divId, key, opponent, time) {
   var div = document.getElementById(divId);
@@ -116,13 +117,22 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time) {
   } */
   // Create moment object from time
   var momentTime = moment(time);
-  var tz = jstz.determine() || 'UTC'; // get timezone
-  var currTz = tz.name();
-  // Adjust using Moment Timezone
-  var tzTime = momentTime.tz(currTz).format('ddd, MMM D, h:mm:ss a z');
+  var momentTimeEnd = momentTime.clone().add(1, 'days');
+
+  var timezone = jstz.determine() || 'UTC'; // get timezone
+  var currentTimezone = timezone.name();
+
+  var momentTimeFormatted = momentTime.format('ddd, MMM D, hh:mm a z');
   var countdown = momentTime.fromNow();
-  div.innerHTML = 'Next war vs "' + opponent + '" ' + countdown + '<br>Start time: ' + tzTime + '(' + currTz + ')';
+
+  div.innerHTML = 'Next war vs "' + opponent + '" ' + countdown + '<br>Start time: ' + momentTimeFormatted + '(' + currentTimezone + ')';
+
+
+  var chart = $('#graph-container').highcharts();
+  chart.xAxis[0].setExtremes( momentTime.valueOf(), momentTimeEnd.valueOf() );
+
 };
+
 // gklyu saves a new war on the Firebase DB.
 FriendlyChat.prototype.saveWar = function(e) {
   e.preventDefault();
@@ -263,8 +273,6 @@ FriendlyChat.prototype.onAuthStateChanged = function(user) {
 
     // We load currently existing chant messages.
     this.loadMessages();
-    // gklyu
-    this.loadWars();
   } else { // User is signed out!
     // Hide user's profile and sign-out button.
     this.userName.setAttribute('hidden', 'true');
@@ -274,6 +282,9 @@ FriendlyChat.prototype.onAuthStateChanged = function(user) {
     // Show sign-in button.
     this.signInButton.removeAttribute('hidden');
   }
+      // gklyu
+    this.loadWars();
+
 };
 
 // Returns true if user is signed-in. Otherwise false and displays a message.
@@ -370,165 +381,240 @@ FriendlyChat.prototype.checkSetup = function() {
 };
 
 window.onload = function() {
-  // gklyu
-  // Create a Moment.js object
-  var momentTime = moment();
-  var tz = jstz.determine() || 'UTC'; // get timezone
-  var currTz = tz.name();
-  // Adjust using Moment Timezone
-  var tzTime = momentTime.tz(currTz).format('ddd, MMM D, h:mm:ss a z');
-  document.getElementById("current_time").textContent = tzTime + ' ('+ currTz + ')';
+  var timezone = jstz.determine() || 'UTC'; // get timezone
+  var currentTzName = timezone.name();
 
-
+  var tzTime = moment();
+  var tzTimeFormatted = tzTime.format('ddd, MMM D, hh:mm a z');
+  document.getElementById("current_time").textContent = tzTimeFormatted + ' ('+ currentTzName + ')';
 
   window.friendlyChat = new FriendlyChat();
 
+};
 
-  // gklyu
-  var chart = new Highcharts.Chart({
-    chart: {
-      renderTo: 'graph-container',
-      animation: false
-    },
-    colors: ['rgba(74,117,211,0.2)', 'rgba(211, 135, 74, 0.2)', 'rgba(108, 74, 211, 0.2)', 'rgba(211, 97, 74, 0.2)', 'rgba(74, 211, 113, 0.2)', 'rgba(208, 74, 211, 0.2)', 'rgba(211, 74, 90, 0.2)', 'rgba(211, 206, 74, 0.2)', 'rgba(74, 211, 151, 0.2)', 'rgba(74, 126, 211, 0.2)'],
-    title: {
-      text: 'Player availability (draggable points)'
-    },
-    xAxis: {
-      categories: ['Start', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'End']
-    },
-    plotOptions: {
-      series: {
-        point: {
-          events: {
-            drag: function (e) {
-              // Returning false stops the drag and drops. Example:
-              /*
-              if (e.newY > 300) {
-                  this.y = 300;
-                  return false;
-              }
-              */
-              $('#drag').html(
-                'Dragging <b>' + this.series.name + '</b>, <b>' + this.category + '</b> to <b>' + Highcharts.numberFormat(e.y, 2) + '</b>');
-            },
-            drop: function () {
-              $('#drop').html(
-                'In <b>' + this.series.name + '</b>, <b>' + this.category + '</b> was set to <b>' + Highcharts.numberFormat(this.y, 2) + '</b>');
-            }
+
+  // gklyu create chart
+$(function () {
+
+  var warStartTime = moment().valueOf();
+
+  var timezone = jstz.determine() || 'UTC'; // get timezone
+  var currentTzName = timezone.name();
+
+  Highcharts.setOptions({
+      global: {
+          getTimezoneOffset: function (timestamp) {
+              var chartTimezone = currentTzName;
+              var timezoneOffset = -moment.tz(timestamp, chartTimezone).utcOffset();
+              return timezoneOffset;
+          }
+      }
+  });
+
+  $('#graph-container').highcharts({
+        chart: {
+          renderTo: 'graph-container',
+          animation: false
+        },
+        colors: ['rgba(74,117,211,0.2)', 'rgba(211, 135, 74, 0.2)', 'rgba(108, 74, 211, 0.2)', 'rgba(211, 97, 74, 0.2)', 'rgba(74, 211, 113, 0.2)', 'rgba(208, 74, 211, 0.2)', 'rgba(211, 74, 90, 0.2)', 'rgba(211, 206, 74, 0.2)', 'rgba(74, 211, 151, 0.2)', 'rgba(74, 126, 211, 0.2)'],
+        title: {
+          text: 'Player availability (draggable points)'
+        },
+        xAxis: {
+          type: 'datetime',
+          dateTimeLabelFormats: {
+              day: '%b %e',
+              hour: '%H:%M',
+          },
+          endOnTick: false,
+          showFirstLabel: true,
+          startOnTick: false
+        },
+        yAxis: {
+          title: {
+            text: 'Availability index'
           }
         },
-        stickyTracking: true
-      },
-      column: {
-        stacking: 'normal'
-      },
-      line: {
-        cursor: 'ns-resize'
-      }
-    },
-    tooltip: {
-      yDecimals: 2
-    },
-    series: [{
-      data: [0, 61.5, 94.4, 130.2, 23.0, 45.0, 89.6, 24.5, 95.4, 199.1, 64.6, 88.4],
-      type: 'area',
-      draggableY: true,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [54, 55, 55, 32, 189, 192, 36, 92, 150, 139, 55, 119],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [140, 168, 177, 128, 37, 24, 77, 162, 85, 173, 197, 83],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [111, 4, 177, 171, 22, 7, 137, 101, 195, 95, 129, 9],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [61, 99, 119, 124, 7, 85, 162, 89, 154, 44, 17, 35],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [181, 194, 1, 169, 12, 188, 21, 15, 82, 124, 132, 62],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [35, 81, 136, 142, 7, 146, 154, 8, 95, 106, 58, 139],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [118, 37, 179, 56, 95, 147, 49, 93, 74, 150, 106, 87],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [20, 127, 91, 146, 193, 3, 41, 9, 163, 58, 89, 172],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [174, 197, 167, 50, 23, 76, 1, 58, 139, 46, 182, 180],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [176, 142, 103, 44, 18, 153, 44, 187, 105, 58, 155, 36],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [144, 42, 106, 111, 13, 148, 173, 42, 163, 117, 77, 190],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [86, 113, 166, 149, 105, 82, 184, 158, 113, 23, 133, 30],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [83, 20, 73, 163, 198, 58, 152, 175, 88, 109, 70, 38],
-      type: 'area',
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }, {
-      data: [30, 48, 95, 165, 130, 5, 119, 89, 104, 199, 184, 139],
-      type: 'area',
-      //draggableX: true,
-      draggableY: false,
-      dragMaxY: 230,
-      dragMinY: 0
-    }]
+        plotOptions: {
+          series: {
+            point: {
+              events: {
+                drag: function (e) {
+                  // Returning false stops the drag and drops. Example:
+                  /*
+                  if (e.newY > 300) {
+                      this.y = 300;
+                      return false;
+                  }
+                  */
+                  $('#drag').html(
+                    'Dragging <b>' + this.series.name + '</b>, <b>' + this.category + '</b> to <b>' + Highcharts.numberFormat(e.y, 2) + '</b>');
+                },
+                drop: function () {
+                  $('#drop').html(
+                    'In <b>' + this.series.name + '</b>, <b>' + this.category + '</b> was set to <b>' + Highcharts.numberFormat(this.y, 2) + '</b>');
+                }
+              }
+            },
+            stickyTracking: true
+          },
+          column: {
+            stacking: 'normal'
+          },
+          line: {
+            cursor: 'ns-resize'
+          }
+        },
+        plotLines: [{
+          color: 'red', // Color value
+          dashStyle: 'longdashdot', // Style of the plot line. Default to solid
+          value: 3, // Value of where the line will appear
+          width: 2 // Width of the line    
+        }],
+        tooltip: {
+          yDecimals: 0
+        },
+        series: [{
+          name: 'RangerSkywalker',
+          data: [0, 61.5, 94.4, 130.2, 23.0, 45.0, 89.6, 24.5, 95.4, 199.1, 64.6, 88.4],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: true,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'ObiWants2KnowU2',
+          data: [54, 55, 55, 32, 189, 192, 36, 92, 150, 139, 55, 119],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'Lionrock',
+          data: [140, 168, 177, 128, 37, 24, 77, 162, 85, 173, 197, 83],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'Copenflavor',
+          data: [111, 4, 177, 171, 22, 7, 137, 101, 195, 95, 129, 9],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'Wook187',
+          data: [61, 99, 119, 124, 7, 85, 162, 89, 154, 44, 17, 35],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'Rubito',
+          data: [181, 194, 1, 169, 12, 188, 21, 15, 82, 124, 132, 62],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'Drew yo',
+          data: [35, 81, 136, 142, 7, 146, 154, 8, 95, 106, 58, 139],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          data: [118, 37, 179, 56, 95, 147, 49, 93, 74, 150, 106, 87],
+          name: 'Captain Danger2',
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'Scoobie Roar',
+          data: [20, 127, 91, 146, 193, 3, 41, 9, 163, 58, 89, 172],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'RaginCajun',
+          data: [174, 197, 167, 50, 23, 76, 1, 58, 139, 46, 182, 180],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'gklyu',
+          data: [176, 142, 103, 44, 18, 153, 44, 187, 105, 58, 155, 36],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'Slovi Hine',
+          data: [144, 42, 106, 111, 13, 148, 173, 42, 163, 117, 77, 190],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'Nitram',
+          data: [86, 113, 166, 149, 105, 82, 184, 158, 113, 23, 133, 30],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'C3PO killer',
+          data: [83, 20, 73, 163, 198, 58, 152, 175, 88, 109, 70, 38],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }, {
+          name: 'PC_the_3rd',
+          data: [30, 48, 95, 165, 130, 5, 119, 89, 104, 199, 184, 139],
+          type: 'area',
+                pointStart: warStartTime,
+                pointInterval: 2 * 60 * 60 * 1000, // two hours
+          //draggableX: true,
+          draggableY: false,
+          dragMaxY: 230,
+          dragMinY: 0
+        }]
+
   });
 
 
+});
 
 
-
-
-
-
-};
