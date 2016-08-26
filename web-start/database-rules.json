@@ -4,6 +4,10 @@
       ".read": true,
       ".write": "auth != null"
     },
+    "players": {
+      ".read": true,
+      ".write": true
+    },
     "wars": {
       ".read": true,
       ".write": "auth != null"
