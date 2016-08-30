@@ -98,31 +98,32 @@ FriendlyChat.prototype.loadWars = function() {
   // TODO(DEVELOPER): Load and listens for new wars.
   // Reference to the /wars/ database path.
   this.warsRef = this.database.ref('wars');
-  this.playersRef = this.database.ref('players');
-
   this.warsRef.off();     // Make sure we remove all previous listeners.
-  this.playersRef.off();     // Make sure we remove all previous listeners.
 
-
-//console.log(this.currPlayer.value);
-this.playersRef.once('value', function(snapshot) {
-  this.allPlayers = snapshot.val();
-  //updateStarCount(postElement, snapshot.val());
-}.bind(this));
-console.log(this.allPlayers);
-
+console.log(this.currPlayer.value);
 
   // Loads the last 1 war and listen for new ones.
   var setWar = function(data) {
     var val = data.val();
-    this.displayWar('current-war', data.key, val.opponent, val.time);
+    this.displayWar('current-war', data.key, val.opponent, val.time, this.currPlayer.value);
   }.bind(this);
   this.warsRef.limitToLast(1).on('child_added', setWar);
   this.warsRef.limitToLast(1).on('child_changed', setWar);  
 };
 
+
+
+FriendlyChat.prototype.isArray = function(obj) {
+  return Object.prototype.toString.call(obj) === '[object Array]';
+}
+FriendlyChat.prototype.splat = function(obj) {
+  return this.isArray(obj) ? obj : [obj];
+}
+
+
+
 // Displays a war in the UI.
-FriendlyChat.prototype.displayWar = function(divId, key, opponent, time) {
+FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPlayer) {
   var div = document.getElementById(divId);
   // If an element for that message does not exists yet we create it. NOT USED FOR NOW
   /*
@@ -147,140 +148,108 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time) {
 
   var warStartTime = momentTime.valueOf();
 
-  var options = {
-    chart: {
-      renderTo: 'graph-container',
-      type: 'spline',
-      animation: false
-    },
-    colors: ['rgba(74,117,211,0.2)', 'rgba(211, 135, 74, 0.2)', 'rgba(108, 74, 211, 0.2)', 'rgba(211, 97, 74, 0.2)', 'rgba(74, 211, 113, 0.2)', 'rgba(208, 74, 211, 0.2)', 'rgba(211, 74, 90, 0.2)', 'rgba(211, 206, 74, 0.2)', 'rgba(74, 211, 151, 0.2)', 'rgba(74, 126, 211, 0.2)'],
-    title: {
-      text: 'Player availability (draggable points)'
-    },
-    xAxis: {
-      type: 'datetime',
-      dateTimeLabelFormats: {
-          day: '%b %e',
-          hour: '%H:%M',
+  // get data on all players
+  this.playersRef = this.database.ref('players');
+  this.playersRef.off();     // Make sure we remove all previous listeners.
+  this.playersRef.once('value', function(snapshot) {
+    var data = snapshot.val();
+    //console.log( data );
+    var playerData=[];
+    for(var key in data) {        
+        var properties = data[key];
+        properties.draggableY = ( properties.name == currPlayer ) ? true : false;
+        if(typeof properties === "object") {
+           playerData.push(properties);
+        }             
+    }
+    var options = {
+      chart: {
+        renderTo: 'graph-container',
+        type: 'spline',
+        animation: false
       },
-      endOnTick: false,
-      showFirstLabel: true,
-      startOnTick: false
-    },
-    yAxis: {
+      colors: ['rgba(74,117,211,0.2)', 'rgba(211, 135, 74, 0.2)', 'rgba(108, 74, 211, 0.2)', 'rgba(211, 97, 74, 0.2)', 'rgba(74, 211, 113, 0.2)', 'rgba(208, 74, 211, 0.2)', 'rgba(211, 74, 90, 0.2)', 'rgba(211, 206, 74, 0.2)', 'rgba(74, 211, 151, 0.2)', 'rgba(74, 126, 211, 0.2)'],
       title: {
-        text: 'Availability index'
-      }
-    },
-    plotOptions: {
-      series: {
-        pointStart: warStartTime,
-        pointInterval: 2 * 60 * 60 * 1000, // two hours
-        dragMaxY: 230,
-        dragMinY: 0,        
-        point: {
-          events: {
-            drag: function (e) {
-              // Returning false stops the drag and drops. Example:
-              /*
-              if (e.newY > 300) {
-                  this.y = 300;
-                  return false;
-              }
-              */
-              $('#drag').html(
-                'Dragging <b>' + this.series.name + '</b>, <b>' + this.category + '</b> to <b>' + Highcharts.numberFormat(e.y, 2) + '</b>');
-            },
-            drop: function () {
-              console.log(this);
-              $('#drop').html(
-                'In <b>' + this.series.name + '</b>, <b>' + this.category + '</b> was set to <b>' + Highcharts.numberFormat(this.y, 2) + '</b>');
-            }
-          }
+        text: 'Player availability (draggable points)'
+      },
+      xAxis: {
+        type: 'datetime',
+        dateTimeLabelFormats: {
+            day: '%b %e',
+            hour: '%H:%M',
         },
-        stickyTracking: true
+        endOnTick: false,
+        showFirstLabel: true,
+        startOnTick: false
       },
-      column: {
-        stacking: 'normal'
+      yAxis: {
+        title: {
+          text: 'Availability index'
+        }
       },
-      line: {
-        cursor: 'ns-resize'
-      }
-    },
-    plotLines: [{
-      color: 'red', // Color value
-      dashStyle: 'longdashdot', // Style of the plot line. Default to solid
-      value: 3, // Value of where the line will appear
-      width: 2 // Width of the line    
-    }],
-    tooltip: {
-      yDecimals: 0
-    },
-    series: [{
-      name: 'RangerSkywalker',
-      data: [0, 61.5, 94.4, 130.2, 23.0, 45.0, 89.6, 24.5, 95.4, 199.1, 64.6, 88.4, 10],
-      draggableY: true
-    }, {
-      name: 'ObiWants2KnowU2',
-      data: [54, 55, 55, 32, 189, 192, 36, 92, 150, 139, 55, 119, 10],
-      draggableY: false
-    }, {
-      name: 'Lionrock',
-      data: [140, 168, 177, 128, 37, 24, 77, 162, 85, 173, 197, 83, 10],
-      draggableY: false
-    }, {
-      name: 'Copenflavor',
-      data: [111, 4, 177, 171, 22, 7, 137, 101, 195, 95, 129, 9, 10],
-      draggableY: false
-    }, {
-      name: 'Wook187',
-      data: [61, 99, 119, 124, 7, 85, 162, 89, 154, 44, 17, 35, 10],
-      draggableY: false
-    }, {
-      name: 'Rubito',
-      data: [181, 194, 1, 169, 12, 188, 21, 15, 82, 124, 132, 62, 10],
-      draggableY: false
-    }, {
-      name: 'Drew yo',
-      data: [35, 81, 136, 142, 7, 146, 154, 8, 95, 106, 58, 139, 10],
-      draggableY: false
-    }, {
-      data: [118, 37, 179, 56, 95, 147, 49, 93, 74, 150, 106, 87, 10],
-      name: 'Captain Danger2',
-      draggableY: false
-    }, {
-      name: 'Scoobie Roar',
-      data: [20, 127, 91, 146, 193, 3, 41, 9, 163, 58, 89, 172, 10],
-      draggableY: false
-    }, {
-      name: 'RaginCajun',
-      data: [174, 197, 167, 50, 23, 76, 1, 58, 139, 46, 182, 180, 10],
-      draggableY: false
-    }, {
-      name: 'gklyu',
-      data: [176, 142, 103, 44, 18, 153, 44, 187, 105, 58, 155, 36, 10],
-      draggableY: false
-    }, {
-      name: 'Slovi Hine',
-      data: [144, 42, 106, 111, 13, 148, 173, 42, 163, 117, 77, 190, 10],
-      draggableY: false
-    }, {
-      name: 'Nitram',
-      data: [86, 113, 166, 149, 105, 82, 184, 158, 113, 23, 133, 30, 10],
-      draggableY: false
-    }, {
-      name: 'C3PO killer',
-      data: [83, 20, 73, 163, 198, 58, 152, 175, 88, 109, 70, 38, 10],
-      draggableY: false
-    }, {
-      name: 'PC_the_3rd',
-      data: [30, 48, 95, 165, 130, 5, 119, 89, 104, 199, 184, 139, 10],
-      draggableY: false
-    }]
-  };
+      plotOptions: {
+        series: {
+          pointStart: warStartTime,
+          pointInterval: 2 * 60 * 60 * 1000, // two hours
+          dragMaxY: 230,
+          dragMinY: 0,        
+          point: {
+            events: {
+              drag: function (e) {
+                // Returning false stops the drag and drops. Example:
+                /*
+                if (e.newY > 300) {
+                    this.y = 300;
+                    return false;
+                }
+                */
+                $('#drag').html(
+                  'Dragging <b>' + this.series.name + '</b>, <b>' + this.category + '</b> to <b>' + Highcharts.numberFormat(e.y, 2) + '</b>');
+              },
+              drop: function () {
+                console.log(this);
+                $('#drop').html(
+                  'In <b>' + this.series.name + '</b>, <b>' + this.category + '</b> was set to <b>' + Highcharts.numberFormat(this.y, 2) + '</b>');
+              }
+            }
+          },
+          stickyTracking: true
+        },
+        column: {
+          stacking: 'normal'
+        },
+        line: {
+          cursor: 'ns-resize'
+        }
+      },
+      plotLines: [{
+        color: 'red', // Color value
+        dashStyle: 'longdashdot', // Style of the plot line. Default to solid
+        value: 3, // Value of where the line will appear
+        width: 2 // Width of the line    
+      }],
+      tooltip: {
+        formatter: function (tooltip) {
+            var items = this.points || this.splat(this),
+                series = items[0].series,
+                s;
 
-  var chart = new Highcharts.Chart(options);
-  //chart.xAxis[0].setExtremes( momentTime.valueOf(), momentTimeEnd.valueOf() );
+            // sort the values
+            items.sort(function(a, b){
+                return ((a.y < b.y) ? -1 : ((a.y > b.y) ? 1 : 0));
+            });
+            items.reverse();
+
+            return tooltip.defaultFormatter.call(this, tooltip);
+        },
+        shared: true,
+        crosshairs: true,
+        yDecimals: 0
+      },
+      series: playerData
+    };
+    var chart = new Highcharts.Chart(options);
+  });
 
 };
 
