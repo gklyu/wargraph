@@ -91,6 +91,9 @@ FriendlyChat.prototype.loadMessages = function() {
 
 // gklyu loads one war FOR NOW, listens for upcoming ones.
 FriendlyChat.prototype.loadPlayers = function() {
+  // get data on all players
+  this.playersRef = this.database.ref('players');
+  this.playersRef.off();     // Make sure we remove all previous listeners.
 };
 
 // gklyu loads one war FOR NOW, listens for upcoming ones.
@@ -98,11 +101,9 @@ FriendlyChat.prototype.loadWars = function() {
   // Reference to the /wars/ database path.
   this.warsRef = this.database.ref('wars');
   this.warsRef.off();     // Make sure we remove all previous listeners.
-  // get data on all players
-  this.playersRef = this.database.ref('players');
-  this.playersRef.off();     // Make sure we remove all previous listeners.
-console.log(this.currPlayer.value);
 
+  //console.log(this.currPlayer.value);
+  $('#drag').html('');
   // Loads the last 1 war and listen for new ones.
   var setWar = function(data) {
     var val = data.val();
@@ -120,37 +121,6 @@ FriendlyChat.isArray = function(obj) {
 FriendlyChat.splat = function(obj) {
   return this.isArray(obj) ? obj : [obj];
 }
-
-
-
-
-
-FriendlyChat.savePlayerPoint = function(somedata) {
-  // Check that the user entered a war opponent and time and is signed in.
-  console.log(somedata);
-  /*
-  if ( this.warOpponent.value && this.warTime.value ) {
-    // Add number of warTime hours to now
-    var now = moment().add(this.warTime.value, 'hours');
-    this.warTime.value = now.format();
-    // Push a new war entry to the Firebase Database.
-    this.warsRef.push({
-      opponent: this.warOpponent.value,
-      time: this.warTime.value
-    }).then(function() {
-      // Clear text fields and // SEND button state.
-      FriendlyChat.resetMaterialTextfield(this.warOpponent);
-      FriendlyChat.resetMaterialTextfield(this.warTime);
-      // this.toggleButton();
-    }.bind(this)).catch(function(error) {
-      console.error('Error writing new war to Firebase Database', error);
-    });
-  }
-  */
-};
-
-
-
 
 // Displays a war in the UI.
 FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPlayer) {
@@ -242,12 +212,8 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
               drop: function () {
                 currPlayerData.data[this.index]=this.y;
                 var updates = {};
-                updates['/players/' + currPlayerData.name] = currPlayerData;
-                FriendlyChat.savePlayerPoint(currPlayerData);
-                $('#drop').html(
-                'In <b>' + this.series.name + '</b>, <b>' + this.index + '</b> was set to <b>' + Highcharts.numberFormat(this.y, 2) + '</b>');
-
-                //console.log(currPlayerData);                
+                updates[currPlayerData.name] = currPlayerData;
+                FriendlyChat.savePlayerPoint(updates);
               }
             }
           }
@@ -278,7 +244,8 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
             items.reverse();
             return tooltip.defaultFormatter.call(this, tooltip);
         },
-        shared: (properties.name !== currPlayer),
+        shared: (!currPlayer),
+        crosshairs: (!currPlayer),
         yDecimals: 0
       },
       series: playerData
@@ -289,7 +256,37 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
 };
 
 
+FriendlyChat.savePlayerPoint = function(somedata) {
+  // Check that the user entered a war opponent and time and is signed in.
+  //console.log(FriendlyChat.prototype.playersRef);
+  console.log(somedata);
+  firebase.database().ref('players').update(somedata);
 
+  $('#drag').html('<b>Saved</b>');
+  //$('#drop').html('In <b>' + this.series.name + '</b>, <b>' + this.index + '</b> was set to <b>' + Highcharts.numberFormat(this.y, 2) + '</b>');
+
+
+  //this.playersRef.update(somedata);
+  /*
+  if ( this.warOpponent.value && this.warTime.value ) {
+    // Add number of warTime hours to now
+    var now = moment().add(this.warTime.value, 'hours');
+    this.warTime.value = now.format();
+    // Push a new war entry to the Firebase Database.
+    this.warsRef.push({
+      opponent: this.warOpponent.value,
+      time: this.warTime.value
+    }).then(function() {
+      // Clear text fields and // SEND button state.
+      FriendlyChat.resetMaterialTextfield(this.warOpponent);
+      FriendlyChat.resetMaterialTextfield(this.warTime);
+      // this.toggleButton();
+    }.bind(this)).catch(function(error) {
+      console.error('Error writing new war to Firebase Database', error);
+    });
+  }
+  */
+};
 
 // gklyu saves a new war on the Firebase DB.
 FriendlyChat.prototype.saveWar = function(e) {
@@ -440,10 +437,10 @@ FriendlyChat.prototype.onAuthStateChanged = function(user) {
     // Show sign-in button.
     this.signInButton.removeAttribute('hidden');
   }
-      // gklyu
-    // this.loadPlayers();
-    this.loadWars();
 
+  // gklyu
+  this.loadPlayers();
+  this.loadWars();
 };
 
 // Returns true if user is signed-in. Otherwise false and displays a message.
