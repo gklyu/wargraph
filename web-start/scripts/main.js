@@ -95,11 +95,12 @@ FriendlyChat.prototype.loadPlayers = function() {
 
 // gklyu loads one war FOR NOW, listens for upcoming ones.
 FriendlyChat.prototype.loadWars = function() {
-  // TODO(DEVELOPER): Load and listens for new wars.
   // Reference to the /wars/ database path.
   this.warsRef = this.database.ref('wars');
   this.warsRef.off();     // Make sure we remove all previous listeners.
-
+  // get data on all players
+  this.playersRef = this.database.ref('players');
+  this.playersRef.off();     // Make sure we remove all previous listeners.
 console.log(this.currPlayer.value);
 
   // Loads the last 1 war and listen for new ones.
@@ -113,12 +114,41 @@ console.log(this.currPlayer.value);
 
 
 
-FriendlyChat.prototype.isArray = function(obj) {
+FriendlyChat.isArray = function(obj) {
   return Object.prototype.toString.call(obj) === '[object Array]';
 }
-FriendlyChat.prototype.splat = function(obj) {
+FriendlyChat.splat = function(obj) {
   return this.isArray(obj) ? obj : [obj];
 }
+
+
+
+
+
+FriendlyChat.savePlayerPoint = function(somedata) {
+  // Check that the user entered a war opponent and time and is signed in.
+  console.log(somedata);
+  /*
+  if ( this.warOpponent.value && this.warTime.value ) {
+    // Add number of warTime hours to now
+    var now = moment().add(this.warTime.value, 'hours');
+    this.warTime.value = now.format();
+    // Push a new war entry to the Firebase Database.
+    this.warsRef.push({
+      opponent: this.warOpponent.value,
+      time: this.warTime.value
+    }).then(function() {
+      // Clear text fields and // SEND button state.
+      FriendlyChat.resetMaterialTextfield(this.warOpponent);
+      FriendlyChat.resetMaterialTextfield(this.warTime);
+      // this.toggleButton();
+    }.bind(this)).catch(function(error) {
+      console.error('Error writing new war to Firebase Database', error);
+    });
+  }
+  */
+};
+
 
 
 
@@ -148,18 +178,21 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
 
   var warStartTime = momentTime.valueOf();
 
-  // get data on all players
-  this.playersRef = this.database.ref('players');
-  this.playersRef.off();     // Make sure we remove all previous listeners.
-  this.playersRef.once('value', function(snapshot) {
+  this.playersRef.on('value', function(snapshot) {
     var data = snapshot.val();
-    //console.log( data );
     var playerData=[];
+    var currPlayerData={};
     for(var key in data) {        
         var properties = data[key];
-        properties.draggableY = ( properties.name == currPlayer ) ? true : false;
+        if (properties.name == currPlayer) {
+          properties.draggableY = true;
+          currPlayerData.name = properties.name;
+          currPlayerData.data = properties.data;
+        }/* else {
+          properties.draggableY = false;
+        }*/
         if(typeof properties === "object") {
-           playerData.push(properties);
+           playerData.push(properties); // array of all player data
         }             
     }
     var options = {
@@ -168,7 +201,7 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
         type: 'spline',
         animation: false
       },
-      colors: ['rgba(74,117,211,0.2)', 'rgba(211, 135, 74, 0.2)', 'rgba(108, 74, 211, 0.2)', 'rgba(211, 97, 74, 0.2)', 'rgba(74, 211, 113, 0.2)', 'rgba(208, 74, 211, 0.2)', 'rgba(211, 74, 90, 0.2)', 'rgba(211, 206, 74, 0.2)', 'rgba(74, 211, 151, 0.2)', 'rgba(74, 126, 211, 0.2)'],
+      colors: ['rgba(74,117,211,0.8)', 'rgba(211, 135, 74, 0.8)', 'rgba(108, 74, 211, 0.8)', 'rgba(211, 97, 74, 0.8)', 'rgba(74, 211, 113, 0.8)', 'rgba(208, 74, 211, 0.8)', 'rgba(211, 74, 90, 0.8)', 'rgba(211, 206, 74, 0.8)', 'rgba(74, 211, 151, 0.8)', 'rgba(74, 126, 211, 0.8)'],
       title: {
         text: 'Player availability (draggable points)'
       },
@@ -204,16 +237,21 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
                 }
                 */
                 $('#drag').html(
-                  'Dragging <b>' + this.series.name + '</b>, <b>' + this.category + '</b> to <b>' + Highcharts.numberFormat(e.y, 2) + '</b>');
+                  'Dragging <b>' + this.series.name + '</b>, <b>' + this.index + '</b> to <b>' + Highcharts.numberFormat(e.y, 2) + '</b>');
               },
               drop: function () {
-                console.log(this);
+                currPlayerData.data[this.index]=this.y;
+                var updates = {};
+                updates['/players/' + currPlayerData.name] = currPlayerData;
+                FriendlyChat.savePlayerPoint(currPlayerData);
                 $('#drop').html(
-                  'In <b>' + this.series.name + '</b>, <b>' + this.category + '</b> was set to <b>' + Highcharts.numberFormat(this.y, 2) + '</b>');
+                'In <b>' + this.series.name + '</b>, <b>' + this.index + '</b> was set to <b>' + Highcharts.numberFormat(this.y, 2) + '</b>');
+
+                //console.log(currPlayerData);                
               }
             }
-          },
-          stickyTracking: true
+          }
+          //stickyTracking: true
         },
         column: {
           stacking: 'normal'
@@ -230,28 +268,28 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
       }],
       tooltip: {
         formatter: function (tooltip) {
-            var items = this.points || this.splat(this),
+            var items = this.points || FriendlyChat.splat(this),
                 series = items[0].series,
                 s;
-
             // sort the values
             items.sort(function(a, b){
                 return ((a.y < b.y) ? -1 : ((a.y > b.y) ? 1 : 0));
             });
             items.reverse();
-
             return tooltip.defaultFormatter.call(this, tooltip);
         },
-        shared: true,
-        crosshairs: true,
+        shared: (properties.name !== currPlayer),
         yDecimals: 0
       },
       series: playerData
     };
     var chart = new Highcharts.Chart(options);
-  });
+  }.bind(this));
 
 };
+
+
+
 
 // gklyu saves a new war on the Firebase DB.
 FriendlyChat.prototype.saveWar = function(e) {
