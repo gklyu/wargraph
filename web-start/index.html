@@ -80,10 +80,10 @@
   </dialog>
 
 
-<div class="demo-layout mdl-layout mdl-js-layout mdl-layout--fixed-header">
+<div class="demo-layout mdl-layout mdl-js-layout">
 
   <!-- Header section containing logo -->
-  <header class="mdl-layout__header mdl-color-text--white mdl-color--light-blue-700">
+  <header class="mdl-layout__header mdl-layout__header--scroll mdl-color-text--white mdl-color--light-blue-700">
     <div class="mdl-cell mdl-cell--12-col mdl-cell--12-col-tablet mdl-grid">
       <div class="mdl-layout__header-row mdl-cell mdl-cell--12-col mdl-cell--12-col-tablet mdl-cell--12-col-desktop">
         <h3><i class="material-icons">chat_bubble_outline</i> YodasMarines</h3>
@@ -108,35 +108,41 @@
 
     <!-- gklyu -->
     <div id="war-container" class="mdl-cell mdl-cell--12-col mdl-grid">
+
       <div>
-          <div id="current-war">...waiting to fight...</div>
-          <form id="new-war-form" action="#">
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-              <input class="mdl-textfield__input" type="text" id="new-war-opponent">
-              <label class="mdl-textfield__label" for="new-war-opponent">opponent...</label>
-            </div><br>
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-              <input class="mdl-textfield__input" type="text" id="new-war-time">
-              <label class="mdl-textfield__label" for="new-war-time">hours from now...</label>
-            </div>
-            <button id="new-war-submit" type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">Add new war</button>
-          </form>
-      </div>
-      <div>
-        Your current time is:
-        <div id="current_time">0</div>
+        <div id="current-war">...waiting to fight...</div>
+        <div>Time now: <span id="current_time">0</span></div>
+                
+        <form id="new-war-form" action="#" hidden>
+          <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <input class="mdl-textfield__input" type="text" id="new-war-opponent">
+            <label class="mdl-textfield__label" for="new-war-opponent">opponent...</label>
+          </div><br>
+          <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <input class="mdl-textfield__input" type="text" id="new-war-time">
+            <label class="mdl-textfield__label" for="new-war-time">hours from now...</label>
+          </div>
+          <button id="new-war-submit" type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">Add new war</button>
+        </form>
 
         <div>
+          <label>View or edit:</label>
           <select id="currPlayer">
             <option value="">View only</option>
-            <option value="gklyu">gklyu</option>
             <option value="RangerSkywalker">RangerSkywalker</option>
+            <option value="Rubito">Rubito</option>
+            <option value="RaginCajun">RaginCajun</option>
+            <option value="Lionrock">Lionrock</option>
+            <option value="Obi">Obi</option>
+            <option value="Drew yo">Drew yo</option>
+            <option value="Copenflavor">Copenflavor</option>
+            <option value="gklyu">gklyu</option>
           </select>
         </div>
-
       </div>
+
     </div>
-    <div id="graph-container" style="height: 400px"></div>
+    <div id="graph-container" class="mdl-cell mdl-cell--12-col mdl-grid"></div>
     <div id="drag"></div>
 
 

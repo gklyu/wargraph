@@ -144,7 +144,7 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
   var momentTimeFormatted = momentTime.format('ddd, MMM D, hh:mm a z');
   var countdown = momentTime.fromNow();
 
-  div.innerHTML = 'Next war vs "' + opponent + '" ' + countdown + '<br>Start time: ' + momentTimeFormatted + '(' + currentTimezone + ')';
+  div.innerHTML = 'Next war vs <strong>"' + opponent + '"</strong> ' + countdown + '<br>Start time: <strong>' + momentTimeFormatted + '(' + currentTimezone + ')</strong>';
 
   var warStartTime = momentTime.valueOf();
 
@@ -173,7 +173,7 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
       },
       colors: ['rgba(74,117,211,0.8)', 'rgba(211, 135, 74, 0.8)', 'rgba(108, 74, 211, 0.8)', 'rgba(211, 97, 74, 0.8)', 'rgba(74, 211, 113, 0.8)', 'rgba(208, 74, 211, 0.8)', 'rgba(211, 74, 90, 0.8)', 'rgba(211, 206, 74, 0.8)', 'rgba(74, 211, 151, 0.8)', 'rgba(74, 126, 211, 0.8)'],
       title: {
-        text: 'Player availability (draggable points)'
+        text: 'War Timeline (24 hours)'
       },
       xAxis: {
         type: 'datetime',
@@ -187,7 +187,7 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
       },
       yAxis: {
         title: {
-          text: 'Availability index'
+          text: 'Player Availability (0 to 230)'
         }
       },
       plotOptions: {
@@ -207,10 +207,11 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
                 }
                 */
                 $('#drag').html(
-                  'Dragging <b>' + this.series.name + '</b>, <b>' + this.index + '</b> to <b>' + Highcharts.numberFormat(e.y, 2) + '</b>');
+                  'Dragging <b>' + this.series.name + '</b>, <b>' + this.index + '</b> to <b>' + Highcharts.numberFormat(e.y) + '</b>');
               },
               drop: function () {
-                currPlayerData.data[this.index]=this.y;
+                currPlayerData.data[this.index]=Math.round(this.y);
+                //currPlayerData.data[this.index]=Highcharts.numberFormat(this.y);
                 var updates = {};
                 updates[currPlayerData.name] = currPlayerData;
                 FriendlyChat.savePlayerPoint(updates);
@@ -417,6 +418,9 @@ FriendlyChat.prototype.onAuthStateChanged = function(user) {
     // Set the user's profile pic and name.
     this.userPic.style.backgroundImage = 'url(' + profilePicUrl + ')';
     this.userName.textContent = userName;
+
+    // show new war input form
+    this.warForm.removeAttribute('hidden');
 
     // Show user's profile and sign-out button.
     this.userName.removeAttribute('hidden');
