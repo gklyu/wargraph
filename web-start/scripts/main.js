@@ -156,13 +156,17 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
         var properties = data[key];
         if (properties.name == currPlayer) {
           properties.draggableY = true;
+          properties.visible = true;
           currPlayerData.name = properties.name;
           currPlayerData.data = properties.data;
         }/* else {
           properties.draggableY = false;
         }*/
         if(typeof properties === "object") {
-           playerData.push(properties); // array of all player data
+          if ( currPlayer && !properties.visible ) {
+            properties.visible = false;
+          }
+          playerData.push(properties); // array of all player data
         }             
     }
     var options = {
