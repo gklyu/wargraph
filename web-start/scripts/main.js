@@ -185,20 +185,36 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
             day: '%b %e',
             hour: '%H:%M',
         },
+        plotLines: [{
+          color: 'rgba(74,117,211,0.4)', // Color value
+          value: moment(), // Value of where the line will appear
+          width: 5, // Width of the line    
+          label: {
+              text: 'Now',
+              verticalAlign: 'middle',
+              textAlign: 'center'
+          }
+        }],
         endOnTick: false,
         showFirstLabel: true,
         startOnTick: false
       },
       yAxis: {
+        allowDecimals: false,
+        minTickInterval: 2,
+        floor: 0,
+        ceiling: 100,
+        min: 0,
+        max: 100,
         title: {
-          text: 'Player Availability (0 to 230)'
+          text: 'Player Availability (0 to 100)'
         }
       },
       plotOptions: {
         series: {
           pointStart: warStartTime,
           pointInterval: 2 * 60 * 60 * 1000, // two hours
-          dragMaxY: 230,
+          dragMaxY: 100,
           dragMinY: 0,        
           point: {
             events: {
@@ -231,12 +247,6 @@ FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPla
           cursor: 'ns-resize'
         }
       },
-      plotLines: [{
-        color: 'red', // Color value
-        dashStyle: 'longdashdot', // Style of the plot line. Default to solid
-        value: 3, // Value of where the line will appear
-        width: 2 // Width of the line    
-      }],
       tooltip: {
         formatter: function (tooltip) {
             var items = this.points || FriendlyChat.splat(this),
