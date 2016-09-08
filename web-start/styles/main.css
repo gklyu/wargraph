@@ -199,4 +199,16 @@ main, #messages-card {
   top: -1px;
   margin-right: 5px;
 }
-
+.round-yoda {
+    height: 48px;
+    width: 48px;
+    -moz-border-radius: 24px;
+    -webkit-border-radius: 24px;
+    border-radius: 29px;
+    border: 5px solid white;
+}
+.mdl-layout__container.has-scrolling-header .mdl-layout--fixed-header .mdl-layout__content {
+  overflow-y: visible;
+  overflow-x: visible;
+  overflow: visible;
+}
