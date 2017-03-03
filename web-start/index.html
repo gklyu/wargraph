@@ -1,16 +1,4 @@
 <!doctype html>
-<!--
-  Copyright 2015 Google Inc. All rights reserved.
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-      https://www.apache.org/licenses/LICENSE-2.0
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License
--->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -58,33 +46,12 @@
   <!-- gklyu -->
   <script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
   <script src="https://code.highcharts.com/highcharts.js"></script>
-  <script src="https://rawgithub.com/highslide-software/draggable-points/master/draggable-points.js"></script>
-  <!-- dialog polyfill -->
-  <script src="scripts/dialog-polyfill.js"></script>
-  <link rel="stylesheet" type="text/css" href="styles/dialog-polyfill.css" />
-
-
+  <script src="https://code.highcharts.com/highcharts-more.js"></script>
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
+  <script src="scripts/combodate.js"></script>
 
 </head>
 <body>
-  <dialog class="mdl-dialog">
-    <h4 class="mdl-dialog__title">Allow data collection?</h4>
-    <div class="mdl-dialog__content">
-
-      <form method="dialog">
-      <input type="submit" value="Close" />
-      </form>
-
-      <p>
-        Allowing us to collect data will let us get you the information you want faster.
-      </p>
-    </div>
-    <div class="mdl-dialog__actions">
-      <button type="button" class="mdl-button">Agree</button>
-      <button type="button" class="mdl-button close">Disagree</button>
-    </div>
-  </dialog>
-
 
 <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
 
@@ -97,10 +64,10 @@
       <div id="user-container">
         <div hidden id="user-pic"></div>
         <div hidden id="user-name"></div>
-        <button hidden id="sign-out" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-color-text--white">
+        <button id="sign-out" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-color-text--white">
           Sign-out
         </button>
-        <button hidden id="sign-in" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-color-text--white">
+        <button id="sign-in" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-color-text--white">
           <i class="material-icons">account_circle</i>Sign-in with Google
         </button>
       </div>
@@ -109,102 +76,75 @@
 
   <main class="mdl-layout__content mdl-color--grey-100">
 
+    <div>
+      <label>View or edit:</label>
+      <select id="currPlayer">
+        <option value="">View only</option>
+      </select>
+    </div>
 
-
-
-    <!-- gklyu -->
-    <div id="war-container" class="mdl-cell mdl-cell--12-col mdl-grid">
-
-      <div>
-        <div id="current-war">...waiting to fight...</div>
-        <div>Time now: <span id="current_time">0</span></div>
-                
-        <form id="new-war-form" action="#" hidden>
-          <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-            <input class="mdl-textfield__input" type="text" id="new-war-opponent">
-            <label class="mdl-textfield__label" for="new-war-opponent">opponent...</label>
-          </div><br>
-          <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-            <input class="mdl-textfield__input" type="text" id="new-war-time">
-            <label class="mdl-textfield__label" for="new-war-time">hours from now...</label>
-          </div>
-          <button id="new-war-submit" type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">Add new war</button>
-        </form>
-
-        <div>
-          <label>View or edit:</label>
-          <select id="currPlayer">
-            <option value="">View only</option>
-            <option value="C3PO">C3PO</option>
-            <option value="Captain Danger">Captain Danger</option>
-            <option value="Copenflavor">Copenflavor</option>
-            <option value="Drew yo">Drew yo</option>
-            <option value="GoldenDomer">GoldenDomer</option>
-            <option value="Lionrock">Lionrock</option>
-            <option value="NiTram">NiTram</option>
-            <option value="Obi">Obi</option>
-            <option value="PC">PC</option>
-            <option value="RaginCajun">RaginCajun</option>
-            <option value="RangerSkywalker">RangerSkywalker</option>
-            <option value="Rubito">Rubito</option>
-            <option value="shaxpere">shaxpere</option>
-            <option value="Slovi">Slovi</option>
-            <option value="Wook">Wook</option>
-            <option value="gklyu">gklyu</option>
-          </select>
-        </div>
+    <form id="general-availability" class="general-availability" style="display: none;">
+      <div class="opt-in-out">
+        <input type="radio" name="opt-in" value="yes" checked>War please!<br>
+        <input type="radio" name="opt-in" value="no">No thanks.<br>
       </div>
+      <button id="save-times" class="save-times">Save</button> <span id="success" style="display: none;">Saved!</span>
+      <div id="errormsg" style="display: none;"></div>
+      <div class="weekday-availability">
+        <div>
+          <label>Sunday:</label>
+          <input type="text" name="day-0-time" id="day-0-time" class="time-selector" data-format="HH:mm" data-template="HH : mm">
+          <input type="text" name="day-0-duration" id="day-0-duration" class="time-duration" placeholder="hours (ex: 1.5)">
+          <input type="checkbox" name="day-0-allday" id="day-0-allday" class="all-day" value="yes">all day<br>
+        </div>
+        <div>
+          <label>Monday:</label>
+          <input type="text" name="day-1-time" id="day-1-time" class="time-selector" data-format="HH:mm" data-template="HH : mm">
+          <input type="text" name="day-1-duration" id="day-1-duration" class="time-duration" placeholder="hours (ex: 1.5)">
+          <input type="checkbox" name="day-1-allday" id="day-1-allday" class="all-day" value="yes">all day<br>
+        </div>
+        <div>
+          <label>Tuesday:</label>
+          <input type="text" name="day-2-time" id="day-2-time" class="time-selector" data-format="HH:mm" data-template="HH : mm">
+          <input type="text" name="day-2-duration" id="day-2-duration" class="time-duration" placeholder="hours (ex: 1.5)">
+          <input type="checkbox" name="day-2-allday" id="day-2-allday" class="all-day" value="yes">all day<br>
+        </div>
+        <div>
+          <label>Wednesday:</label>
+          <input type="text" name="day-3-time" id="day-3-time" class="time-selector" data-format="HH:mm" data-template="HH : mm">
+          <input type="text" name="day-3-duration" id="day-3-duration" class="time-duration" placeholder="hours (ex: 1.5)">
+          <input type="checkbox" name="day-3-allday" id="day-3-allday" class="all-day" value="yes">all day<br>
+        </div>
+        <div>
+          <label>Thursday:</label>
+          <input type="text" name="day-4-time" id="day-4-time" class="time-selector" data-format="HH:mm" data-template="HH : mm">
+          <input type="text" name="day-4-duration" id="day-4-duration" class="time-duration" placeholder="hours (ex: 1.5)">
+          <input type="checkbox" name="day-4-allday" id="day-4-allday" class="all-day" value="yes">all day<br>
+        </div>
+        <div>
+          <label>Friday:</label>
+          <input type="text" name="day-5-time" id="day-5-time" class="time-selector" data-format="HH:mm" data-template="HH : mm">
+          <input type="text" name="day-5-duration" id="day-5-duration" class="time-duration" placeholder="hours (ex: 1.5)">
+          <input type="checkbox" name="day-5-allday" id="day-5-allday" class="all-day" value="yes">all day<br>
+        </div>
+        <div>
+          <label>Saturday:</label>
+          <input type="text" name="day-6-time" id="day-6-time" class="time-selector" data-format="HH:mm" data-template="HH : mm">
+          <input type="text" name="day-6-duration" id="day-6-duration" class="time-duration" placeholder="hours (ex: 1.5)">
+          <input type="checkbox" name="day-6-allday" id="day-6-allday" class="all-day" value="yes">all day<br>
+        </div>
+        <button id="save-times" class="save-times">Save</button> <span id="success" style="display: none;">Saved!</span>
+        <div id="errormsg" style="display: none;"></div>        
+      </div>
+    </form>
 
+
+    <div id="war-container" class="mdl-cell mdl-cell--12-col mdl-grid">
+      <div>
+        <div>Time now: <span id="current_time">0</span></div>
+      </div>
     </div>
     <div id="graph-container" class="mdl-cell mdl-cell--12-col mdl-grid"></div>
-    <div id="drag"></div>
-
-
-
-
-
-
-
-
-    <div hidden id="messages-card-container" class="mdl-cell mdl-cell--12-col mdl-grid">
-
-      <!-- Messages container -->
-      <div id="messages-card" class="mdl-card mdl-shadow--2dp mdl-cell mdl-cell--12-col mdl-cell--6-col-tablet mdl-cell--6-col-desktop">
-        <div class="mdl-card__supporting-text mdl-color-text--grey-600">
-          <div id="messages">
-            <span id="message-filler"></span>
-          </div>
-          <form id="message-form" action="#">
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-              <input class="mdl-textfield__input" type="text" id="message">
-              <label class="mdl-textfield__label" for="message">Message...</label>
-            </div>
-            <button id="submit" disabled type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
-              Send
-            </button>
-          </form>
-          <form id="image-form" action="#">
-            <input id="mediaCapture" type="file" accept="image/*,capture=camera">
-            <button id="submitImage" title="Add an image" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-color--amber-400 mdl-color-text--white">
-              <i class="material-icons">image</i>
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <div id="must-signin-snackbar" class="mdl-js-snackbar mdl-snackbar">
-        <div class="mdl-snackbar__text"></div>
-        <button class="mdl-snackbar__action" type="button"></button>
-      </div>
-
-    </div>
-  </main>
-</div>
-
-<!-- Firebase -->
-<!-- ***********************************************************************************************************************
-     * TODO(DEVELOPER): Paste the initialization snippet from: Firebase Console > Overview > Add Firebase to your web app. *
-     *********************************************************************************************************************** -->
 
 
 <script src="https://www.gstatic.com/firebasejs/3.2.1/firebase.js"></script>
@@ -213,23 +153,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.5/moment-timezone-with-data-2010-2020.js"></script>
 
 
-<script>
-  /* dialog polyfill
-  var dialog = document.querySelector('dialog');
-  dialogPolyfill.registerDialog(dialog);
-  // Now dialog acts like a native <dialog>.
-  dialog.showModal();
-  */
-  // Initialize Firebase
-  var config = {
-    apiKey: "AIzaSyBDFaDs4-uv1t98UL_mnbHmfgaJSORrs8Q",
-    authDomain: "friendlychat-530ea.firebaseapp.com",
-    databaseURL: "https://friendlychat-530ea.firebaseio.com",
-    storageBucket: "friendlychat-530ea.appspot.com",
-  };
-  firebase.initializeApp(config);
-</script>
-    
 <script src="scripts/main.js"></script>
 </body>
 </html>

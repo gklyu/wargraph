@@ -1,723 +1,417 @@
-/**
- * Copyright 2015 Google Inc. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+
 'use strict';
 
-// Initializes FriendlyChat.
-function FriendlyChat() {
-  this.checkSetup();
-
-  // Shortcuts to DOM Elements.
-  this.messageList = document.getElementById('messages');
-  this.messageForm = document.getElementById('message-form');
-  this.messageInput = document.getElementById('message');
-  this.submitButton = document.getElementById('submit');
-  this.submitImageButton = document.getElementById('submitImage');
-  this.imageForm = document.getElementById('image-form');
-  this.mediaCapture = document.getElementById('mediaCapture');
-  this.userPic = document.getElementById('user-pic');
-  this.userName = document.getElementById('user-name');
-  this.signInButton = document.getElementById('sign-in');
-  this.signOutButton = document.getElementById('sign-out');
-  this.signInSnackbar = document.getElementById('must-signin-snackbar');
-
-  // gklyu
-  this.warForm = document.getElementById('new-war-form');
-  this.warOpponent = document.getElementById('new-war-opponent');
-  this.warTime = document.getElementById('new-war-time');
-  this.warForm.addEventListener('submit', this.saveWar.bind(this));
-
-  this.currPlayer = document.getElementById('currPlayer');
-  this.currPlayer.addEventListener('change', this.loadWars.bind(this));
-
-  // Saves message on form submit.
-  this.messageForm.addEventListener('submit', this.saveMessage.bind(this));
-  this.signOutButton.addEventListener('click', this.signOut.bind(this));
-  this.signInButton.addEventListener('click', this.signIn.bind(this));
-
-  // Toggle for the button.
-  var buttonTogglingHandler = this.toggleButton.bind(this);
-  this.messageInput.addEventListener('keyup', buttonTogglingHandler);
-  this.messageInput.addEventListener('change', buttonTogglingHandler);
-
-  // Events for image upload.
-  this.submitImageButton.addEventListener('click', function() {
-    this.mediaCapture.click();
-  }.bind(this));
-  this.mediaCapture.addEventListener('change', this.saveImageMessage.bind(this));
-
-  this.initFirebase();
-}
-
-// Sets up shortcuts to Firebase features and initiate firebase auth.
-FriendlyChat.prototype.initFirebase = function() {
-  // TODO(DEVELOPER): Initialize Firebase.
-  // Shortcuts to Firebase SDK features.
-  this.auth = firebase.auth();
-  this.database = firebase.database();
-  this.storage = firebase.storage();
-  // Initiates Firebase auth and listen to auth state changes.
-  this.auth.onAuthStateChanged(this.onAuthStateChanged.bind(this));  
-};
-
-// Loads chat messages history and listens for upcoming ones.
-FriendlyChat.prototype.loadMessages = function() {
-  // TODO(DEVELOPER): Load and listens for new messages.
-  // Reference to the /messages/ database path.
-  this.messagesRef = this.database.ref('messages');
-  // Make sure we remove all previous listeners.
-  this.messagesRef.off();
-
-  // Loads the last 12 messages and listen for new ones.
-  var setMessage = function(data) {
-    var val = data.val();
-    this.displayMessage(data.key, val.name, val.text, val.photoUrl, val.imageUrl);
-  }.bind(this);
-  this.messagesRef.limitToLast(12).on('child_added', setMessage);
-  this.messagesRef.limitToLast(12).on('child_changed', setMessage);  
-};
-
-// gklyu loads one war FOR NOW, listens for upcoming ones.
-FriendlyChat.prototype.loadPlayers = function() {
-  // get data on all players
-  this.playersRef = this.database.ref('players');
-  this.playersRef.off();     // Make sure we remove all previous listeners.
-};
-
-// gklyu loads one war FOR NOW, listens for upcoming ones.
-FriendlyChat.prototype.loadWars = function() {
-  // Reference to the /wars/ database path.
-  this.warsRef = this.database.ref('wars');
-  this.warsRef.off();     // Make sure we remove all previous listeners.
-
-  //console.log(this.currPlayer.value);
-  $('#drag').html('');
-  // Loads the last 1 war and listen for new ones.
-  var setWar = function(data) {
-    var val = data.val();
-    this.displayWar('current-war', data.key, val.opponent, val.time, this.currPlayer.value);
-  }.bind(this);
-  this.warsRef.limitToLast(1).on('child_added', setWar);
-  this.warsRef.limitToLast(1).on('child_changed', setWar);  
-};
-
-
-
-FriendlyChat.isArray = function(obj) {
-  return Object.prototype.toString.call(obj) === '[object Array]';
-}
-FriendlyChat.splat = function(obj) {
-  return this.isArray(obj) ? obj : [obj];
-}
-
-// Displays a war in the UI.
-FriendlyChat.prototype.displayWar = function(divId, key, opponent, time, currPlayer) {
-  var div = document.getElementById(divId);
-  // If an element for that message does not exists yet we create it. NOT USED FOR NOW
-  /*
-  if (!div) {
-    var container = document.createElement('div');
-    container.innerHTML = FriendlyChat.MESSAGE_TEMPLATE;
-    div = container.firstChild;
-    div.setAttribute('id', key);
-    this.messageList.appendChild(div);
-  } */
-  // Create moment object from time
-  var momentTime = moment(time);
-  var momentTimeEnd = momentTime.clone().add(1, 'days');
-
-  var timezone = jstz.determine() || 'UTC'; // get timezone
-  var currentTimezone = timezone.name();
-
-  var momentTimeFormatted = momentTime.format('ddd, MMM D, hh:mm a z');
-  var countdown = momentTime.fromNow();
-
-  div.innerHTML = 'Next war vs <strong>"' + opponent + '"</strong> ' + countdown + '<br>Start time: <strong>' + momentTimeFormatted + '(' + currentTimezone + ')</strong>';
-
-  var warStartTime = momentTime.valueOf();
-
-  this.playersRef.on('value', function(snapshot) {
-    var data = snapshot.val();
-    var playerData=[];
-    var currPlayerData={};
-    for(var key in data) {        
-        var properties = data[key];
-        if (properties.name == currPlayer) {
-          properties.draggableY = true;
-          properties.visible = true;
-          currPlayerData.name = properties.name;
-          currPlayerData.data = properties.data;
-        }/* else {
-          properties.draggableY = false;
-        }*/
-        if(typeof properties === "object") {
-          if ( currPlayer && !properties.visible ) {
-            properties.visible = false;
-          }
-          playerData.push(properties); // array of all player data
-        }             
-    }
-    var options = {
-      chart: {
-        renderTo: 'graph-container',
-        type: 'spline',
-        animation: false
-      },
-      colors: ['rgba(74,117,211,0.8)', 'rgba(211, 135, 74, 0.8)', 'rgba(108, 74, 211, 0.8)', 'rgba(211, 97, 74, 0.8)', 'rgba(74, 211, 113, 0.8)', 'rgba(208, 74, 211, 0.8)', 'rgba(211, 74, 90, 0.8)', 'rgba(211, 206, 74, 0.8)', 'rgba(74, 211, 151, 0.8)', 'rgba(74, 126, 211, 0.8)'],
-      title: {
-        text: 'War Timeline (24 hours)'
-      },
-      xAxis: {
-        type: 'datetime',
-        dateTimeLabelFormats: {
-            day: '%b %e',
-            hour: '%H:%M',
-        },
-        plotLines: [{
-          color: 'rgba(74,117,211,0.4)', // Color value
-          value: moment(), // Value of where the line will appear
-          width: 5, // Width of the line    
-          label: {
-              text: 'Now',
-              verticalAlign: 'middle',
-              textAlign: 'center'
-          }
-        }],
-        endOnTick: false,
-        showFirstLabel: true,
-        startOnTick: false
-      },
-      yAxis: {
-        allowDecimals: false,
-        minTickInterval: 2,
-        floor: 0,
-        ceiling: 100,
-        min: 0,
-        max: 100,
-        title: {
-          text: 'Player Availability (0 to 100)'
-        }
-      },
-      plotOptions: {
-        series: {
-          pointStart: warStartTime,
-          pointInterval: 2 * 60 * 60 * 1000, // two hours
-          dragMaxY: 100,
-          dragMinY: 0,        
-          point: {
-            events: {
-              drag: function (e) {
-                // Returning false stops the drag and drops. Example:
-                /*
-                if (e.newY > 300) {
-                    this.y = 300;
-                    return false;
-                }
-                */
-                $('#drag').html(
-                  'Dragging <b>' + this.series.name + '</b>, <b>' + this.index + '</b> to <b>' + Highcharts.numberFormat(e.y) + '</b>');
-              },
-              drop: function () {
-                currPlayerData.data[this.index]=Math.round(this.y);
-                //currPlayerData.data[this.index]=Highcharts.numberFormat(this.y);
-                var updates = {};
-                updates[currPlayerData.name] = currPlayerData;
-                FriendlyChat.savePlayerPoint(updates);
-              }
-            }
-          }
-          //stickyTracking: true
-        },
-        column: {
-          stacking: 'normal'
-        },
-        line: {
-          cursor: 'ns-resize'
-        }
-      },
-      tooltip: {
-        formatter: function (tooltip) {
-            var items = this.points || FriendlyChat.splat(this),
-                series = items[0].series,
-                s;
-            // sort the values
-            items.sort(function(a, b){
-                return ((a.y < b.y) ? -1 : ((a.y > b.y) ? 1 : 0));
-            });
-            items.reverse();
-            return tooltip.defaultFormatter.call(this, tooltip);
-        },
-        shared: (!currPlayer),
-        crosshairs: (!currPlayer),
-        yDecimals: 0
-      },
-      series: playerData
-    };
-    var chart = new Highcharts.Chart(options);
-  }.bind(this));
-
-};
-
-
-FriendlyChat.savePlayerPoint = function(somedata) {
-  // Check that the user entered a war opponent and time and is signed in.
-  //console.log(FriendlyChat.prototype.playersRef);
-  console.log(somedata);
-  firebase.database().ref('players').update(somedata);
-
-  $('#drag').html('<b>Saved</b>');
-  //$('#drop').html('In <b>' + this.series.name + '</b>, <b>' + this.index + '</b> was set to <b>' + Highcharts.numberFormat(this.y, 2) + '</b>');
-
-
-  //this.playersRef.update(somedata);
-  /*
-  if ( this.warOpponent.value && this.warTime.value ) {
-    // Add number of warTime hours to now
-    var now = moment().add(this.warTime.value, 'hours');
-    this.warTime.value = now.format();
-    // Push a new war entry to the Firebase Database.
-    this.warsRef.push({
-      opponent: this.warOpponent.value,
-      time: this.warTime.value
-    }).then(function() {
-      // Clear text fields and // SEND button state.
-      FriendlyChat.resetMaterialTextfield(this.warOpponent);
-      FriendlyChat.resetMaterialTextfield(this.warTime);
-      // this.toggleButton();
-    }.bind(this)).catch(function(error) {
-      console.error('Error writing new war to Firebase Database', error);
-    });
-  }
-  */
-};
-
-// gklyu saves a new war on the Firebase DB.
-FriendlyChat.prototype.saveWar = function(e) {
-  e.preventDefault();
-  // Check that the user entered a war opponent and time and is signed in.
-  if (this.warOpponent.value && this.warTime.value && this.checkSignedInWithMessage()) {
-    // Add number of warTime hours to now
-    var now = moment().add(this.warTime.value, 'hours');
-    this.warTime.value = now.format();
-    // Push a new war entry to the Firebase Database.
-    this.warsRef.push({
-      opponent: this.warOpponent.value,
-      time: this.warTime.value
-    }).then(function() {
-      // Clear text fields and // SEND button state.
-      FriendlyChat.resetMaterialTextfield(this.warOpponent);
-      FriendlyChat.resetMaterialTextfield(this.warTime);
-      // this.toggleButton();
-    }.bind(this)).catch(function(error) {
-      console.error('Error writing new war to Firebase Database', error);
-    });
-  }
-};
-
-// Saves a new message on the Firebase DB.
-FriendlyChat.prototype.saveMessage = function(e) {
-  e.preventDefault();
-  // Check that the user entered a message and is signed in.
-  if (this.messageInput.value && this.checkSignedInWithMessage()) {
-    // TODO(DEVELOPER): push new message to Firebase.
-    var currentUser = this.auth.currentUser;
-    // Add a new message entry to the Firebase Database.
-    this.messagesRef.push({
-      name: currentUser.displayName,
-      text: this.messageInput.value,
-      photoUrl: currentUser.photoURL || '/images/profile_placeholder.png'
-    }).then(function() {
-      // Clear message text field and SEND button state.
-      FriendlyChat.resetMaterialTextfield(this.messageInput);
-      this.toggleButton();
-    }.bind(this)).catch(function(error) {
-      console.error('Error writing new message to Firebase Database', error);
-    });
-  }
-};
-
-// Sets the URL of the given img element with the URL of the image stored in Firebase Storage.
-FriendlyChat.prototype.setImageUrl = function(imageUri, imgElement) {
-  imgElement.src = imageUri;
-  // TODO(DEVELOPER): If image is on Firebase Storage, fetch image URL and set img element's src.
-  // If the image is a Firebase Storage URI we fetch the URL.
-  if (imageUri.startsWith('gs://')) {
-    imgElement.src = FriendlyChat.LOADING_IMAGE_URL; // Display a loading image first.
-    this.storage.refFromURL(imageUri).getMetadata().then(function(metadata) {
-      imgElement.src = metadata.downloadURLs[0];
-    });
-  } else {
-    imgElement.src = imageUri;
-  }  
-};
-
-// Saves a new message containing an image URI in Firebase.
-// This first saves the image in Firebase storage.
-FriendlyChat.prototype.saveImageMessage = function(event) {
-  var file = event.target.files[0];
-
-  // Clear the selection in the file picker input.
-  this.imageForm.reset();
-
-  // Check if the file is an image.
-  if (!file.type.match('image.*')) {
-    var data = {
-      message: 'You can only share images',
-      timeout: 2000
-    };
-    this.signInSnackbar.MaterialSnackbar.showSnackbar(data);
-    return;
-  }
-  // Check if the user is signed-in
-  if (this.checkSignedInWithMessage()) {
-    // TODO(DEVELOPER): Upload image to Firebase storage and add message.
-    // We add a message with a loading icon that will get updated with the shared image.
-    var currentUser = this.auth.currentUser;
-    this.messagesRef.push({
-      name: currentUser.displayName,
-      imageUrl: FriendlyChat.LOADING_IMAGE_URL,
-      photoUrl: currentUser.photoURL || '/images/profile_placeholder.png'
-    }).then(function(data) {
-
-      // Upload the image to Firebase Storage.
-      var uploadTask = this.storage.ref(currentUser.uid + '/' + Date.now() + '/' + file.name)
-          .put(file, {'contentType': file.type});
-      // Listen for upload completion.
-      uploadTask.on('state_changed', null, function(error) {
-        console.error('There was an error uploading a file to Firebase Storage:', error);
-      }, function() {
-
-        // Get the file's Storage URI and update the chat message placeholder.
-        var filePath = uploadTask.snapshot.metadata.fullPath;
-        data.update({imageUrl: this.storage.ref(filePath).toString()});
-      }.bind(this));
-    }.bind(this));
-  }
-};
-
-// Signs-in Friendly Chat.
-FriendlyChat.prototype.signIn = function(googleUser) {
-  // TODO(DEVELOPER): Sign in Firebase with credential from the Google user.
-  // Sign in Firebase using popup auth and Google as the identity provider.
+function signIn() {
   var provider = new firebase.auth.GoogleAuthProvider();
-  this.auth.signInWithPopup(provider);  
-};
+  firebase.auth().signInWithPopup(provider);
+}
+function signOut() {
+  firebase.auth().signOut();
+}
 
-// Signs-out of Friendly Chat.
-FriendlyChat.prototype.signOut = function() {
-  // TODO(DEVELOPER): Sign out of Firebase.
-  // Sign out of Firebase.
-  this.auth.signOut();  
-};
+function chartit( options ) {
+  var chart = new Highcharts.Chart(options);
+}
 
-// Triggers when the auth state change for instance when the user signs-in or signs-out.
-FriendlyChat.prototype.onAuthStateChanged = function(user) {
-  if (user) { // User is signed in!
-    // Get profile pic and user's name from the Firebase user object.
-    var profilePicUrl = user.photoURL; // Only change these two lines!
-    var userName = user.displayName;   // Only change these two lines!
-
-    // Set the user's profile pic and name.
-    this.userPic.style.backgroundImage = 'url(' + profilePicUrl + ')';
-    this.userName.textContent = userName;
-
-    // show new war input form
-    this.warForm.removeAttribute('hidden');
-
-    // Show user's profile and sign-out button.
-    this.userName.removeAttribute('hidden');
-    this.userPic.removeAttribute('hidden');
-    this.signOutButton.removeAttribute('hidden');
-
-    // Hide sign-in button.
-    this.signInButton.setAttribute('hidden', 'true');
-
-    // We load currently existing chant messages.
-    this.loadMessages();
-  } else { // User is signed out!
-    // Hide user's profile and sign-out button.
-    this.userName.setAttribute('hidden', 'true');
-    this.userPic.setAttribute('hidden', 'true');
-    this.signOutButton.setAttribute('hidden', 'true');
-
-    // Show sign-in button.
-    this.signInButton.removeAttribute('hidden');
+function setInput( type, day, name, value ) {
+  var inputEl = '';
+  switch ( day ) { 
+    case 'sunday': 
+      inputEl = 'day-0-';
+      break;
+    case 'monday': 
+      inputEl = 'day-1-';
+      break;
+    case 'tuesday': 
+      inputEl = 'day-2-';
+      break;    
+    case 'wednesday': 
+      inputEl = 'day-3-';
+      break;
+    case 'thursday': 
+      inputEl = 'day-4-';
+      break;
+    case 'friday': 
+      inputEl = 'day-5-';
+      break;
+    case 'saturday': 
+      inputEl = 'day-6-';
+      break;
   }
-
-  // gklyu
-  this.loadPlayers();
-  this.loadWars();
-};
-
-// Returns true if user is signed-in. Otherwise false and displays a message.
-FriendlyChat.prototype.checkSignedInWithMessage = function() {
-  /* TODO(DEVELOPER): Check if user is signed-in Firebase. */
-  // Return true if the user is signed in Firebase
-  if (this.auth.currentUser) {
-    return true;
+  // name is time, duration, allday
+  // type is text or checkbox
+  if ( type=='text' ) {
+    if ( name=='duration' ) {
+      $("input[name=" + inputEl + name + "]").val(value);
+    }
+    if ( name=='time' ) {
+      $("input[name=" + inputEl + name + "]").combodate('setValue', value);
+    }
   }
-  // Display a message to the user using a Toast.
-  var data = {
-    message: 'You must sign-in first',
-    timeout: 2000
-  };
-  this.signInSnackbar.MaterialSnackbar.showSnackbar(data);
-  return false;
-};
+  if ( type=='checkbox' ) {
+    var checkboxEl = $("input[name=" + inputEl + name + "]");
+    checkboxEl.prop('checked', value);
+    checkboxEl.closest('div').find('.time-duration ').prop('disabled', value);
+    checkboxEl.closest('div').find('.hour ').prop('disabled', value);
+    checkboxEl.closest('div').find('.minute ').prop('disabled', value);
+  }  
+}
 
-// Resets the given MaterialTextField.
-FriendlyChat.resetMaterialTextfield = function(element) {
-  element.value = '';
-  element.parentNode.MaterialTextfield.boundUpdateClassesHandler();
-};
+function resetInputs() {
+  $("#general-availability").trigger('reset');
+  $('.weekday-availability').show();
+  $(':input','#general-availability')
+  .prop('disabled', false);
+}
 
-// Template for messages.
-FriendlyChat.MESSAGE_TEMPLATE =
-    '<div class="message-container">' +
-      '<div class="spacing"><div class="pic"></div></div>' +
-      '<div class="message"></div>' +
-      '<div class="name"></div>' +
-    '</div>';
+function loadPlayerData( player, database ) {
+  database.ref('players/' + player).once('value').then(function(snapshot) {
+    var playerData = snapshot.val();
+    //console.log(playerData);
+    if ( playerData.available=='yes' ) {
+      $("input[name=opt-in]").filter('[value=yes]').prop('checked', true);
+    } else {
+      $("input[name=opt-in]").filter('[value=no]').prop('checked', true);
+    }
+    for ( var dayOfWeek in playerData.data ) {        
+      var dayStatus = playerData.data[dayOfWeek];
+      setInput( 'text', dayOfWeek, 'duration', dayStatus.duration );
+      setInput( 'text', dayOfWeek, 'time', dayStatus.time );
+      setInput( 'checkbox', dayOfWeek, 'allday', dayStatus.allday );        
+    }
+  });
+}
 
-// A loading image URL.
-FriendlyChat.LOADING_IMAGE_URL = 'https://www.google.com/images/spin-32.gif';
-
-// Displays a Message in the UI.
-FriendlyChat.prototype.displayMessage = function(key, name, text, picUrl, imageUri) {
-  var div = document.getElementById(key);
-  // If an element for that message does not exists yet we create it.
-  if (!div) {
-    var container = document.createElement('div');
-    container.innerHTML = FriendlyChat.MESSAGE_TEMPLATE;
-    div = container.firstChild;
-    div.setAttribute('id', key);
-    this.messageList.appendChild(div);
-  }
-  if (picUrl) {
-    div.querySelector('.pic').style.backgroundImage = 'url(' + picUrl + ')';
-  }
-  div.querySelector('.name').textContent = name;
-  var messageElement = div.querySelector('.message');
-  if (text) { // If the message is text.
-    messageElement.textContent = text;
-    // Replace all line breaks by <br>.
-    messageElement.innerHTML = messageElement.innerHTML.replace(/\n/g, '<br>');
-  } else if (imageUri) { // If the message is an image.
-    var image = document.createElement('img');
-    image.addEventListener('load', function() {
-      this.messageList.scrollTop = this.messageList.scrollHeight;
-    }.bind(this));
-    this.setImageUrl(imageUri, image);
-    messageElement.innerHTML = '';
-    messageElement.appendChild(image);
-  }
-  // Show the card fading-in.
-  setTimeout(function() {div.classList.add('visible')}, 1);
-  this.messageList.scrollTop = this.messageList.scrollHeight;
-  this.messageInput.focus();
-};
-
-// Enables or disables the submit button depending on the values of the input
-// fields.
-FriendlyChat.prototype.toggleButton = function() {
-  if (this.messageInput.value) {
-    this.submitButton.removeAttribute('disabled');
-  } else {
-    this.submitButton.setAttribute('disabled', 'true');
-  }
-};
-
-// Checks that the Firebase SDK has been correctly setup and configured.
-FriendlyChat.prototype.checkSetup = function() {
-  if (!window.firebase || !(firebase.app instanceof Function) || !window.config) {
-    window.alert('You have not configured and imported the Firebase SDK. ' +
-        'Make sure you go through the codelab setup instructions.');
-  } else if (config.storageBucket === '') {
-    window.alert('Your Firebase Storage bucket has not been enabled. Sorry about that. This is ' +
-        'actually a Firebase bug that occurs rarely. ' +
-        'Please go and re-generate the Firebase initialisation snippet (step 4 of the codelab) ' +
-        'and make sure the storageBucket attribute is not empty. ' +
-        'You may also need to visit the Storage tab and paste the name of your bucket which is ' +
-        'displayed there.');
-  }
-};
-
-window.onload = function() {
-  // var timezone = jstz.determine() || 'UTC'; // get timezone
-  // var currentTzName = timezone.name();
-
-  // var tzTime = moment();
-  // var tzTimeFormatted = tzTime.format('ddd, MMM D, hh:mm a z');
-  // document.getElementById("current_time").textContent = tzTimeFormatted + ' ('+ currentTzName + ')';
-};
+function showError( divlocation, msg ) {
+  var errorDiv = divlocation.closest('div').find('div#errormsg').first();
+  errorDiv.text(msg).css( "color", "red" );
+  errorDiv.fadeIn( 300 ).delay( 3000 ).fadeOut( 400 );
+}
 
 
-  // gklyu create chart
 $(function () {
-
   var now = moment();
-  var warStartTime = now.valueOf();
-
   var timezone = jstz.determine() || 'UTC'; // get timezone
   var currentTzName = timezone.name();
-
   var nowFormatted = now.format('ddd, MMM D, hh:mm a z');
-
   $('#current_time').text( nowFormatted + ' ('+ currentTzName + ')' );
 
-  Highcharts.setOptions({
-      global: {
-          getTimezoneOffset: function (timestamp) {
-              var chartTimezone = currentTzName;
-              var timezoneOffset = -moment.tz(timestamp, chartTimezone).utcOffset();
-              return timezoneOffset;
-          }
-      }
+
+  var config = {
+    apiKey: "AIzaSyBDFaDs4-uv1t98UL_mnbHmfgaJSORrs8Q",
+    authDomain: "friendlychat-530ea.firebaseapp.com",
+    databaseURL: "https://friendlychat-530ea.firebaseio.com",
+    storageBucket: "friendlychat-530ea.appspot.com",
+  };
+  firebase.initializeApp(config);
+
+  // Get a reference to the database service
+  var database = firebase.database();
+  var auth = firebase.auth();
+  var storage = firebase.storage();
+
+  var currPlayer = $('#currPlayer');
+  var playersRef = database.ref('players');
+
+  // toggle signin / signout, load player list to select
+  auth.onAuthStateChanged(function(user) {
+    if (user) {
+      console.log('user logged in');
+      $('#sign-out').toggle( true );
+      $('#sign-in').toggle( false );
+    } else {
+      console.log('user logged out');
+      $('#sign-in').toggle( true );
+      $('#sign-out').toggle( false );
+    } // end else
+
+    playersRef.orderByChild("name").once('value').then(function(snapshot) {
+      var data = snapshot.val();  // array of objects
+      for ( var player in data ) {
+        if ( !user && data[player].available!=='inactive' ) {
+          $('#currPlayer').append($('<option>', {
+              value: player,
+              text: player
+          }));
+        } else if (user) {
+          $('#currPlayer').append($('<option>', {
+              value: player,
+              text: player
+          }));
+        } 
+
+      } // end for
+    });
+
   });
 
-  var friendlyChat = new FriendlyChat();
+  playersRef.orderByChild("available").equalTo("yes").on('value', function(snapshot) {
+    var players = snapshot.val();  // object of objects
+    //console.log(players);
+    var pastSunday = moment().startOf('week');
+    var pastSundayval = pastSunday.valueOf();
+    //console.log(pastSunday.format('MMMM DD YYYY, h:mm:ss a'));
+    // build array of categories: ['john', 'mark', 'paul']
+    var categories = [];
+    var data = [];
 
-/*
-  $('#graph-container').highcharts({
+    for ( var player in players ) {
+      //console.log('player: ' + player);
+      categories.push(player);
+
+      var playerDaysData = players[player].data;
+      for (var day in playerDaysData) {
+        //console.log( playerDaysData[day] );
+        var daydata = [];
+        daydata.push( categories.indexOf(player) ); // add index
+        if ( playerDaysData[day].allday === true ) {
+          var starttime = moment().startOf('week').day(day);
+          var endtime = starttime.clone().add(23,'hours').add(59,'minutes');
+          daydata.push( starttime.valueOf() );
+          daydata.push( endtime.valueOf() );
+        } else {
+          if ( playerDaysData[day].time && playerDaysData[day].duration ) {
+            var thetime = moment(playerDaysData[day].time, "HH:mm");
+            var starttime = moment().startOf('week').day(day).add(thetime.hour(),'hours').add(thetime.minute(),'minutes');
+            var endtime = starttime.clone().add(playerDaysData[day].duration,'hours');
+          } else {
+            var starttime = null;
+            var endtime = null;
+          }
+          daydata.push( (starttime) ? starttime.valueOf() : null );
+          daydata.push( (endtime) ? endtime.valueOf() : null );
+        }
+        if ( daydata.length > 0 ) {
+          //console.log(daydata);
+          data.push( daydata );      
+        }
+      } // end for day
+    } // end for player
+    /* build array of arrays for data
+    data: [
+        [0, guy1startval, guy1endval],  // each day's start and end
+        [0, 1487635000000, 1487735000000],
+        [1, 1487430000000, 1487435000000],
+        [1, 1487535000000, 1487735000000],
+        [2, 1487430000000, 1487435000000]
+    ] */
+    Highcharts.setOptions({
+        global: {
+            getTimezoneOffset: function (timestamp) {
+                var chartTimezone = currentTzName;
+                var timezoneOffset = -moment.tz(timestamp, chartTimezone).utcOffset();
+                return timezoneOffset;
+            }
+        }
+    });
+
+    Highcharts.chart('graph-container', {
         chart: {
-          renderTo: 'graph-container',
-          animation: false
+            type: 'columnrange',
+            inverted: true
         },
-        colors: ['rgba(74,117,211,0.2)', 'rgba(211, 135, 74, 0.2)', 'rgba(108, 74, 211, 0.2)', 'rgba(211, 97, 74, 0.2)', 'rgba(74, 211, 113, 0.2)', 'rgba(208, 74, 211, 0.2)', 'rgba(211, 74, 90, 0.2)', 'rgba(211, 206, 74, 0.2)', 'rgba(74, 211, 151, 0.2)', 'rgba(74, 126, 211, 0.2)'],
-        title: {
-          text: 'Player availability (draggable points)'
-        },
+        title : {
+          text: 'Weekly schedule (Sun - Sat)'
+        }, 
         xAxis: {
-          type: 'datetime',
-          dateTimeLabelFormats: {
-              day: '%b %e',
-              hour: '%H:%M',
-          },
-          endOnTick: false,
-          showFirstLabel: true,
-          startOnTick: false
+            categories: categories
         },
         yAxis: {
-          title: {
-            text: 'Availability index'
+            min: pastSundayval,
+            type: 'datetime',
+            dateTimeLabelFormats: {
+                day: '%a'
+                //day: '%a %b %e'
+            },
+            startOfWeek: 0,
+            startOnTick: false,
+            minRange: 7 * 24 * 60 * 60 * 1000, // one week
+            title: {
+                text: 'Day of week'
+            },
+            plotLines: [{
+              color: 'rgba(74,117,211,0.4)',
+              value: moment(), // now
+              width: 5,
+              label: {
+                  text: 'Now',
+                  verticalAlign: 'middle',
+                  textAlign: 'center'
+              }
+            }]
+        },
+        tooltip: {
+          formatter: function (tooltip) {
+              return this.point.category + ': ' + moment(this.point.low).format("ddd HH:mm") + ' - ' + moment(this.point.high).format("ddd HH:mm");
           }
         },
         plotOptions: {
-          series: {
-            point: {
-              events: {
-                drag: function (e) {
-                  // Returning false stops the drag and drops. Example:
-                  /*
-                  if (e.newY > 300) {
-                      this.y = 300;
-                      return false;
-                  }
-                  */
-                  /*
-                  $('#drag').html(
-                    'Dragging <b>' + this.series.name + '</b>, <b>' + this.category + '</b> to <b>' + Highcharts.numberFormat(e.y, 2) + '</b>');
-                },
-                drop: function () {
-                  $('#drop').html(
-                    'In <b>' + this.series.name + '</b>, <b>' + this.category + '</b> was set to <b>' + Highcharts.numberFormat(this.y, 2) + '</b>');
+            columnrange: {
+                dataLabels: {
+                    enabled: true,
+                    formatter: function () {
+                        //return moment(this.y);
+                        return moment(this.y).format("HH:mm");
+                        //return this.y;
+                    }
                 }
-              }
-            },
-            stickyTracking: true
-          },
-          column: {
-            stacking: 'normal'
-          },
-          line: {
-            cursor: 'ns-resize'
-          }
-        },
-        plotLines: [{
-          color: 'red', // Color value
-          dashStyle: 'longdashdot', // Style of the plot line. Default to solid
-          value: 3, // Value of where the line will appear
-          width: 2 // Width of the line    
-        }],
-        tooltip: {
-          yDecimals: 0
+            }
         },
         series: [{
-          name: 'RangerSkywalker',
-          data: [0, 61.5, 94.4, 130.2, 23.0, 45.0, 89.6, 24.5, 95.4, 199.1, 64.6, 88.4, 10],
-          draggableY: true
-        }, {
-          name: 'ObiWants2KnowU2',
-          data: [54, 55, 55, 32, 189, 192, 36, 92, 150, 139, 55, 119, 10],
-          draggableY: false
-        }, {
-          name: 'Lionrock',
-          data: [140, 168, 177, 128, 37, 24, 77, 162, 85, 173, 197, 83, 10],
-          draggableY: false
-        }, {
-          name: 'Copenflavor',
-          data: [111, 4, 177, 171, 22, 7, 137, 101, 195, 95, 129, 9, 10],
-          draggableY: false
-        }, {
-          name: 'Wook187',
-          data: [61, 99, 119, 124, 7, 85, 162, 89, 154, 44, 17, 35, 10],
-          draggableY: false
-        }, {
-          name: 'Rubito',
-          data: [181, 194, 1, 169, 12, 188, 21, 15, 82, 124, 132, 62, 10],
-          draggableY: false
-        }, {
-          name: 'Drew yo',
-          data: [35, 81, 136, 142, 7, 146, 154, 8, 95, 106, 58, 139, 10],
-          draggableY: false
-        }, {
-          data: [118, 37, 179, 56, 95, 147, 49, 93, 74, 150, 106, 87, 10],
-          name: 'Captain Danger2',
-          draggableY: false
-        }, {
-          name: 'Scoobie Roar',
-          data: [20, 127, 91, 146, 193, 3, 41, 9, 163, 58, 89, 172, 10],
-          draggableY: false
-        }, {
-          name: 'RaginCajun',
-          data: [174, 197, 167, 50, 23, 76, 1, 58, 139, 46, 182, 180, 10],
-          draggableY: false
-        }, {
-          name: 'gklyu',
-          data: [176, 142, 103, 44, 18, 153, 44, 187, 105, 58, 155, 36, 10],
-          draggableY: false
-        }, {
-          name: 'Slovi Hine',
-          data: [144, 42, 106, 111, 13, 148, 173, 42, 163, 117, 77, 190, 10],
-          draggableY: false
-        }, {
-          name: 'Nitram',
-          data: [86, 113, 166, 149, 105, 82, 184, 158, 113, 23, 133, 30, 10],
-          draggableY: false
-        }, {
-          name: 'C3PO killer',
-          data: [83, 20, 73, 163, 198, 58, 152, 175, 88, 109, 70, 38, 10],
-          draggableY: false
-        }, {
-          name: 'PC_the_3rd',
-          data: [30, 48, 95, 165, 130, 5, 119, 89, 104, 199, 184, 139, 10],
-          draggableY: false
+            name: 'Available times',
+            data: data
         }]
-  });
-*/
+    });
 
+  });
+
+  $('.time-selector').combodate({
+    firstItem: 'name', //show 'hour' and 'minute' string at first item of dropdown
+    minuteStep: 15
+  });   
+  $("input[name='opt-in']").on( "change", function() {
+    var weekDays = $('.weekday-availability');
+    if ( $(this).val() === 'yes' ) {
+      weekDays.show();
+    } else {
+      weekDays.hide();
+    }
+  });
+  $('.all-day').on( "click", function() {
+    var thisWeekdayHour = $(this).closest('div').find('.hour ');
+    var thisWeekdayMinute = $(this).closest('div').find('.minute ');
+    var thisWeekdayDuration = $(this).closest('div').find('.time-duration ');
+    if ( $(this).prop('checked') === true ) {
+      thisWeekdayHour.val('');   // need resets?
+      thisWeekdayMinute.val('');
+      thisWeekdayDuration.val('');
+      thisWeekdayHour.prop('disabled', true);
+      thisWeekdayMinute.prop('disabled', true);
+      thisWeekdayDuration.prop('disabled', true);
+    } else {
+      thisWeekdayHour.prop('disabled', false);
+      thisWeekdayMinute.prop('disabled', false);
+      thisWeekdayDuration.prop('disabled', false);
+    }
+  });
+
+
+  currPlayer.on( "change", function() {
+    resetInputs();
+    var player = $(this).val();
+    if ( player!=='' ) {
+      $('#general-availability').show();
+      loadPlayerData( player, database );
+    } else {
+      $('#general-availability').hide();
+    }
+  });
+
+
+
+
+  $('#sign-in').on( "click", function() {
+    signIn();
+  });
+  $('#sign-out').on( "click", function() {
+    signOut();
+  });
+
+  $('.save-times').on( "click", function(event) {
+    event.preventDefault();
+    var confirm = $(this).closest('div').find('span#success').first();
+    var errormessages = '';
+    if ( currPlayer.val() ) {
+      var name = currPlayer.val();
+      var available = $("input[name=opt-in]:checked").val();
+      var update = {
+          name: name,
+          available: available        
+      }
+
+      if ( available=='yes' ) {
+        var data        = {}, 
+            sunday      = {}, 
+            monday      = {}, 
+            tuesday     = {}, 
+            wednesday   = {}, 
+            thursday    = {}, 
+            friday      = {}, 
+            saturday    = {};
+
+        $( "input[name|='day']" ).each(function( i ) {
+          //<input name="day-0-time" id="day-0-time" class="time-selector" data-format="HH:mm" data-template="HH : mm" style="display: none;" type="text">
+          //<input name="day-0-duration" id="day-0-duration" class="time-duration" placeholder="hours (ex: 1.5)" type="text">
+          //<input name="day-0-allday" id="day-0-allday" class="all-day" type="checkbox">
+          var parts = $(this).prop('name').split('-');
+          var key = parts[2];
+          var daynumber = parts[1];
+          if ( key=='allday' ) {
+            $(this).prop('checked') === true
+            var value = ( $(this).prop('checked') ) ? true : false;
+          } else {
+            var value = $(this).val();
+          }
+          switch ( daynumber ) { 
+            case '0': 
+              sunday[key] = value;
+              break;
+            case '1': 
+              monday[key] = value;
+              break;
+            case '2': 
+              tuesday[key] = value;
+              break;    
+            case '3': 
+              wednesday[key] = value;
+              break;
+            case '4': 
+              thursday[key] = value;
+              break;
+            case '5': 
+              friday[key] = value;
+              break;
+            case '6': 
+              saturday[key] = value;
+              break;
+          }
+        });
+        var data = {
+          "sunday" : sunday,
+          "monday" : monday,
+          "tuesday" : tuesday,
+          "wednesday" : wednesday,
+          "thursday" : thursday,
+          "friday" : friday,
+          "saturday" : saturday
+        }
+        // validation
+        for(var day in data) {        
+          var thisDay = data[day];
+          if ( thisDay.allday === false ) {
+            if ( thisDay.duration > 24 || thisDay.duration < 0 ) {
+              errormessages = 'Duration must be between 0 and 24. (check ' + day + ')';
+            }
+            if ( thisDay.time!=='' && thisDay.duration=='' || thisDay.time=='' && thisDay.duration!=='') {
+              errormessages = 'Each start time must have a duration. (check ' + day + ')';
+            }
+          }
+        }
+        update['data'] = data;
+      }
+      if ( errormessages.length > 0 ) {
+        showError( $(this), errormessages );
+      } else {
+        firebase.database().ref( 'players/' + name ).set(update);
+        confirm.fadeIn( 300 ).delay( 800 ).fadeOut( 400 );
+      }
+    } else {
+      errormessages = 'No player selected.';
+      showError( $(this), errormessages );
+    }
+  });
+  
+  // http://jsfiddle.net/74ojqrab/5/
 });
 
 
