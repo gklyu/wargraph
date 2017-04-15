@@ -289,6 +289,9 @@ $(function () {
       thisWeekdayMinute.prop('disabled', true);
       thisWeekdayDuration.prop('disabled', true);
     } else {
+      thisWeekdayHour.val('');   // need resets?
+      thisWeekdayMinute.val('');
+      thisWeekdayDuration.val('');
       thisWeekdayHour.prop('disabled', false);
       thisWeekdayMinute.prop('disabled', false);
       thisWeekdayDuration.prop('disabled', false);
@@ -326,9 +329,9 @@ $(function () {
       var available = $("input[name=opt-in]:checked").val();
       var update = {
           name: name,
-          available: available        
+          available: available,
+          timezone: currentTzName
       }
-
       if ( available=='yes' ) {
         var data        = {}, 
             sunday      = {}, 
